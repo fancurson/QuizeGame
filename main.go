@@ -2,12 +2,22 @@ package main
 
 import (
 	"encoding/csv"
+	"flag"
 	"fmt"
 	"os"
 	"strings"
+	"time"
 )
 
+type quiz struct {
+	q string
+	a string
+}
+
 func main() {
+
+	timeLimit := flag.Int("limit", 3, "time limit for quiz hame")
+
 	csvFileName, err := os.Open("problems.csv")
 	if err != nil {
 		exit(fmt.Sprintf("Open file error: %v", err))
@@ -21,14 +31,34 @@ func main() {
 	}
 
 	data := FillData(records)
-	GameTime(data)
-
-	fmt.Println("Thanks for game!")
+	GameTime(data, timeLimit)
+	fmt.Println("Thanks for the game!")
 }
 
-type quiz struct {
-	q string
-	a string
+func GameTime(data []quiz, limit *int) {
+	count := 0
+	timer := time.NewTimer(time.Duration(*limit) * time.Second)
+	asw := make(chan string)
+
+	for i, d := range data {
+		go func() {
+			fmt.Printf("Question #%d: %s = ", i+1, d.q)
+			var input string
+			fmt.Scanf("%s \n", &input)
+			asw <- input
+		}()
+
+		select {
+		case <-timer.C:
+			fmt.Printf("\nYour score %d out of %d \n", count, len(data))
+			return
+		case answer := <-asw:
+			if answer == d.a {
+				count++
+			}
+		}
+	}
+	fmt.Printf("You score %d out of %d \n", count, len(data))
 }
 
 func exit(msg string) {
@@ -45,17 +75,4 @@ func FillData(records [][]string) []quiz {
 		}
 	}
 	return data
-}
-
-func GameTime(data []quiz) {
-	count := 0
-	for i, d := range data {
-		fmt.Printf("Question #%d: %s = ", i+1, d.q)
-		var input string
-		fmt.Scanf("%s \n", &input)
-		if input == d.a {
-			count++
-		}
-	}
-	fmt.Printf("You score %d out of %d \n", count, len(data))
 }
